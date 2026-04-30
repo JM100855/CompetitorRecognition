@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ app_name }}</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="hero hero-grid">
+        <div>
+          <p class="eyebrow">Simple public-page monitoring</p>
+          <h1>{{ app_name }}</h1>
+          <p class="lede">Enter a niche like <strong>tech</strong> or <strong>oil and gas</strong>. The app collects public sources, scrapes the pages, and saves short notes when something changes.</p>
+        </div>
+        <form class="panel intake-panel" id="niche-intake">
+          <h2>Run a Scan</h2>
+          <label for="niche-name">Niche</label>
+          <input id="niche-name" name="name" placeholder="tech, fintech, oil and gas" required />
+          <label for="niche-description">Focus</label>
+          <textarea id="niche-description" name="description" rows="4" placeholder="Optional context: enterprise software, upstream energy, pricing changes"></textarea>
+          <button type="submit">Run Scan</button>
+          <p class="meta">Works with public sources by default. Local Ollama is optional.</p>
+          <p class="status" id="scan-status"></p>
+        </form>
+      </section>
+
+      <section class="stats-grid">
+        <article class="stat-card">
+          <p class="eyebrow">Saved niches</p>
+          <h2>{{ dashboard.niches|length }}</h2>
+        </article>
+        <article class="stat-card">
+          <p class="eyebrow">Fresh notes</p>
+          <h2>{{ dashboard.insights|length }}</h2>
+        </article>
+        <article class="stat-card">
+          <p class="eyebrow">Recent sweeps</p>
+          <h2>{{ dashboard.runs|length }}</h2>
+        </article>
+        <article class="stat-card">
+          <p class="eyebrow">Saved summaries</p>
+          <h2>{{ dashboard.trajectories|length }}</h2>
+        </article>
+      </section>
+
+      <section class="panel hidden" id="scan-result"></section>
+
+      <section class="panel">
+        <h2>Niches and Sources</h2>
+        {% if dashboard.niches %}
+          <div class="card-grid">
+            {% for niche in dashboard.niches %}
+              <article class="card">
+                <h3>{{ niche.name }}</h3>
+                <p>{{ niche.description or "No description yet." }}</p>
+                <p class="meta">{{ niche.companies|length }} compan{{ "y" if niche.companies|length == 1 else "ies" }}</p>
+                <div class="chip-row">
+                  {% for company in niche.companies[:6] %}
+                    <span class="chip">{{ company.name }}</span>
+                  {% endfor %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <article class="card empty">
+            <h3>No niches yet</h3>
+            <p>Use the form above to build your first watchlist.</p>
+          </article>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <h2>Latest Notes</h2>
+        {% if dashboard.insights %}
+          <div class="card-grid">
+            {% for insight in dashboard.insights %}
+              <article class="card insight-card">
+                <h3>{{ insight.title }}</h3>
+                <pre>{{ insight.body }}</pre>
+                {% if insight.source_url %}
+                  <p><a href="{{ insight.source_url }}" target="_blank" rel="noreferrer">Open source</a></p>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <article class="card empty">
+            <h3>No notes yet</h3>
+            <p>Run a scan to create the first notes.</p>
+          </article>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <h2>Recent Runs</h2>
+        {% if dashboard.runs %}
+          <div class="card-grid">
+            {% for run in dashboard.runs %}
+              <article class="card">
+                <h3>Run #{{ run.id }}</h3>
+                <p class="meta">Status: {{ run.status }}</p>
+                <p>{{ run.pages_scraped }} page{{ "" if run.pages_scraped == 1 else "s" }} scraped, {{ run.insights_created }} note{{ "" if run.insights_created == 1 else "s" }} written.</p>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <article class="card empty">
+            <h3>No sweeps yet</h3>
+            <p>This fills in after the first manual run or scheduled scrape.</p>
+          </article>
+        {% endif %}
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("niche-intake");
+      const nicheNameInput = document.getElementById("niche-name");
+      const nicheDescriptionInput = document.getElementById("niche-description");
+      const status = document.getElementById("scan-status");
+      const result = document.getElementById("scan-result");
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        status.textContent = "Finding sources and scraping pages...";
+        result.classList.add("hidden");
+
+        const payload = {
+          name: nicheNameInput.value,
+          description: nicheDescriptionInput.value || null,
+        };
+
+        try {
+          const response = await fetch("/api/niches/bootstrap", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || "Scan failed");
+          }
+
+          const data = await response.json();
+          status.textContent = "Scan finished.";
+          result.innerHTML = `
+            <h2>${data.niche.name} Results</h2>
+            <p class="lede">${data.pages_scraped} pages scraped, ${data.insights_created} notes written, summary #${data.trajectory_id} saved.</p>
+            <div class="chip-row">
+              ${data.discovered_sources.map((source) => `<span class="chip">${source.company_name}</span>`).join("")}
+            </div>
+            <div class="card-grid top-gap">
+              ${data.discovered_sources.map((source) => `
+                <article class="card">
+                  <h3>${source.company_name}</h3>
+                  <p>${source.rationale}</p>
+                  <p class="meta">${source.page_type} - score ${source.score}</p>
+                  <p><a href="${source.url}" target="_blank" rel="noreferrer">Open source</a></p>
+                </article>
+              `).join("")}
+            </div>
+          `;
+          result.classList.remove("hidden");
+        } catch (error) {
+          status.textContent = error.message;
+        }
+      });
+    </script>
+  </body>
+</html>
