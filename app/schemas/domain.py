@@ -147,3 +147,71 @@ class NicheBootstrapResponse(BaseModel):
     insights_created: int
     task_id: int
     trajectory_id: int
+
+
+class IntelligenceRunCreate(BaseModel):
+    niche: str = Field(min_length=2, max_length=255)
+    query: str = Field(min_length=4)
+    max_results: int = Field(default=8, ge=1, le=25)
+
+
+class WebDocumentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str | None
+    url: str
+    source_name: str | None
+    published_at: str | None
+    summary_text: str | None
+    created_at: datetime
+
+
+class ExtractedEntityRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    entity_type: str
+    description: str | None
+
+
+class ExtractedRelationRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source_entity: str
+    target_entity: str
+    relation_type: str
+    evidence: str | None
+    confidence: float | None
+
+
+class IntelligenceRunRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    niche: str
+    status: str
+    query: str
+    source_count: int
+    document_count: int
+    entity_count: int
+    relation_count: int
+    summary: str | None
+    created_at: datetime
+    finished_at: datetime | None
+    documents: list[WebDocumentRead] = []
+    entities: list[ExtractedEntityRead] = []
+    relations: list[ExtractedRelationRead] = []
+
+
+class IntelligenceQueryRequest(BaseModel):
+    query: str = Field(min_length=4)
+    limit: int = Field(default=5, ge=1, le=20)
+
+
+class IntelligenceQueryResponse(BaseModel):
+    answer: str
+    vector_hits: list[dict[str, object]]
+    graph_hits: list[dict[str, object]]

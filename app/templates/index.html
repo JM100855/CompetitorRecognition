@@ -10,18 +10,18 @@
     <main class="layout">
       <section class="hero hero-grid">
         <div>
-          <p class="eyebrow">Simple public-page monitoring</p>
+          <p class="eyebrow">Agentic web intelligence platform</p>
           <h1>{{ app_name }}</h1>
-          <p class="lede">Enter a niche like <strong>tech</strong> or <strong>oil and gas</strong>. The app collects public sources, scrapes the pages, and saves short notes when something changes.</p>
+          <p class="lede">Capture web intelligence for a niche, extract entities and relationships, and build a searchable document and graph index from real public sources.</p>
         </div>
         <form class="panel intake-panel" id="niche-intake">
-          <h2>Run a Scan</h2>
+          <h2>Quick Capture</h2>
           <label for="niche-name">Niche</label>
           <input id="niche-name" name="name" placeholder="tech, fintech, oil and gas" required />
           <label for="niche-description">Focus</label>
           <textarea id="niche-description" name="description" rows="4" placeholder="Optional context: enterprise software, upstream energy, pricing changes"></textarea>
-          <button type="submit">Run Scan</button>
-          <p class="meta">Works with public sources by default. Local Ollama is optional.</p>
+          <button type="submit">Run Capture</button>
+          <p class="meta">FastAPI serves the API and dashboard. Streamlit is available as a dedicated analyst UI.</p>
           <p class="status" id="scan-status"></p>
         </form>
       </section>
@@ -40,7 +40,7 @@
           <h2>{{ dashboard.runs|length }}</h2>
         </article>
         <article class="stat-card">
-          <p class="eyebrow">Saved summaries</p>
+          <p class="eyebrow">Saved reports</p>
           <h2>{{ dashboard.trajectories|length }}</h2>
         </article>
       </section>
@@ -89,7 +89,7 @@
         {% else %}
           <article class="card empty">
             <h3>No notes yet</h3>
-            <p>Run a scan to create the first notes.</p>
+            <p>Run a capture to create the first notes.</p>
           </article>
         {% endif %}
       </section>
@@ -124,7 +124,7 @@
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        status.textContent = "Finding sources and scraping pages...";
+        status.textContent = "Discovering sources, scraping pages, and building a fresh report...";
         result.classList.add("hidden");
 
         const payload = {
@@ -145,7 +145,7 @@
           }
 
           const data = await response.json();
-          status.textContent = "Scan finished.";
+          status.textContent = "Capture finished.";
           result.innerHTML = `
             <h2>${data.niche.name} Results</h2>
             <p class="lede">${data.pages_scraped} pages scraped, ${data.insights_created} notes written, summary #${data.trajectory_id} saved.</p>

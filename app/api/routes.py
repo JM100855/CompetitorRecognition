@@ -7,6 +7,10 @@ from app.schemas.domain import (
     CompanyCreate,
     CompanyRead,
     DailyRunResponse,
+    IntelligenceQueryRequest,
+    IntelligenceQueryResponse,
+    IntelligenceRunCreate,
+    IntelligenceRunRead,
     NicheBootstrapCreate,
     NicheBootstrapResponse,
     HealthResponse,
@@ -17,6 +21,12 @@ from app.schemas.domain import (
     SourceCreate,
     SourceRead,
     TrainingExportResponse,
+)
+from app.services.intelligence import (
+    answer_intelligence_query,
+    get_intelligence_run,
+    list_intelligence_runs,
+    run_intelligence_capture,
 )
 from app.services.reports import (
     create_basic_report,
@@ -153,3 +163,33 @@ def get_training_export(
         niche_id=niche_id,
         examples=export_training_examples(db, niche_id=niche_id),
     )
+
+
+@api_router.get("/intelligence/runs", response_model=list[IntelligenceRunRead])
+def get_intelligence_runs(db: Session = Depends(get_db)) -> list[IntelligenceRunRead]:
+    return list_intelligence_runs(db)
+
+
+@api_router.get("/intelligence/runs/{run_id}", response_model=IntelligenceRunRead)
+def get_intelligence_run_by_id(run_id: int, db: Session = Depends(get_db)) -> IntelligenceRunRead:
+    run = get_intelligence_run(db, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Intelligence run {run_id} not found")
+    return run
+
+
+@api_router.post("/intelligence/runs", response_model=IntelligenceRunRead, status_code=201)
+def post_intelligence_run(
+    payload: IntelligenceRunCreate, db: Session = Depends(get_db)
+) -> IntelligenceRunRead:
+    return run_intelligence_capture(
+        db,
+        niche=payload.niche,
+        query=payload.query,
+        max_results=payload.max_results,
+    )
+
+
+@api_router.post("/intelligence/query", response_model=IntelligenceQueryResponse)
+def post_intelligence_query(payload: IntelligenceQueryRequest) -> IntelligenceQueryResponse:
+    return IntelligenceQueryResponse(**answer_intelligence_query(payload.query, limit=payload.limit))

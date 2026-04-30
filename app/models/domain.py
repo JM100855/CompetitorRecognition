@@ -162,3 +162,71 @@ class Insight(Base):
 
     niche: Mapped["Niche"] = relationship(back_populates="insights")
     company: Mapped["Company | None"] = relationship(back_populates="insights")
+
+
+class IntelligenceRun(Base):
+    __tablename__ = "intelligence_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    niche: Mapped[str] = mapped_column(String(255), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="running")
+    query: Mapped[str] = mapped_column(Text)
+    source_count: Mapped[int] = mapped_column(Integer, default=0)
+    document_count: Mapped[int] = mapped_column(Integer, default=0)
+    entity_count: Mapped[int] = mapped_column(Integer, default=0)
+    relation_count: Mapped[int] = mapped_column(Integer, default=0)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    documents: Mapped[list["WebDocument"]] = relationship(back_populates="run")
+    entities: Mapped[list["ExtractedEntity"]] = relationship(back_populates="run")
+    relations: Mapped[list["ExtractedRelation"]] = relationship(back_populates="run")
+
+
+class WebDocument(Base):
+    __tablename__ = "web_documents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("intelligence_runs.id"), index=True)
+    title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    url: Mapped[str] = mapped_column(String(1000), index=True)
+    source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    published_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    content_hash: Mapped[str] = mapped_column(String(64), index=True)
+    summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    run: Mapped["IntelligenceRun"] = relationship(back_populates="documents")
+
+
+class ExtractedEntity(Base):
+    __tablename__ = "extracted_entities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("intelligence_runs.id"), index=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("web_documents.id"), nullable=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    run: Mapped["IntelligenceRun"] = relationship(back_populates="entities")
+
+
+class ExtractedRelation(Base):
+    __tablename__ = "extracted_relations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("intelligence_runs.id"), index=True)
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("web_documents.id"), nullable=True)
+    source_entity: Mapped[str] = mapped_column(String(255), index=True)
+    target_entity: Mapped[str] = mapped_column(String(255), index=True)
+    relation_type: Mapped[str] = mapped_column(String(128), index=True)
+    evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    run: Mapped["IntelligenceRun"] = relationship(back_populates="relations")

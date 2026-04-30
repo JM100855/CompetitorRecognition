@@ -1,25 +1,37 @@
-# Competitor Watch
+# CompetitorRecognition
 
-This is a small FastAPI app for tracking public competitor or market pages.
+CompetitorRecognition is an agentic web intelligence platform for discovering, scraping, and structuring web data into industry-specific relationship maps.
 
-You enter a niche, the app builds a starter source list, scrapes those pages, stores snapshots in SQLite, and writes short change notes when page content changes.
+It combines search-driven source discovery, article extraction, schema-driven entity and relation extraction, vector retrieval, and graph storage so analysts can monitor a niche and query how companies, products, signals, and themes connect.
 
 ## What it does
 
-- Track niches such as `tech`, `oil and gas`, or `sales software`
-- Find a basic set of public sources from a built-in catalog
-- Optionally add more sources from a local Ollama instance
-- Scrape pages and save snapshots
-- Create plain notes when a page changes
-- Show recent niches, notes, and scrape runs in a small dashboard
+- Discovers public web sources for a niche using DuckDuckGo search
+- Scrapes and cleans article/page content with Trafilatura
+- Extracts entities and relationships with Gemini using a structured JSON schema
+- Stores document embeddings in ChromaDB for semantic retrieval
+- Stores entity relationships in Kuzu for graph-style lookups
+- Exposes the workflow through FastAPI and a Streamlit analyst UI
+
+## Tech Stack
+
+- `FastAPI`
+- `Streamlit`
+- `Trafilatura`
+- `DuckDuckGo Search`
+- `Gemini API`
+- `ChromaDB`
+- `Kuzu`
+- `SQLite`
 
 ## Project layout
 
 - `app/` contains the FastAPI app
 - `app/api/` contains API routes
-- `app/models/` contains database models
-- `app/services/` contains discovery, scraping, and note-building logic
-- `app/templates/` and `app/static/` contain the dashboard UI
+- `app/models/` contains SQLite models for runs, documents, entities, and relations
+- `app/services/` contains search, scraping, extraction, vector, graph, and reporting logic
+- `streamlit_app.py` provides the Streamlit analyst UI
+- `app/templates/` and `app/static/` contain the lightweight FastAPI dashboard
 - `scripts/seed_demo.py` creates a small sample dataset
 - `data/` stores the local SQLite database
 
@@ -27,83 +39,66 @@ You enter a niche, the app builds a starter source list, scrapes those pages, st
 
 ```mermaid
 flowchart LR
-    U[User in Browser] --> UI[Dashboard HTML/CSS]
-    UI --> API[FastAPI App]
-    API --> INTAKE[Scan and Intake Logic]
-    API --> STORE[Read Dashboard Data]
-    INTAKE --> DISCOVERY[Source Discovery]
-    INTAKE --> PIPELINE[Scrape Pipeline]
-    INTAKE --> REPORTS[Summary Report Logic]
-    DISCOVERY --> OLLAMA[Optional Ollama]
-    DISCOVERY --> CATALOG[Built-in Source Catalog]
-    PIPELINE --> SCRAPER[HTTP Scraper]
-    PIPELINE --> EXTRACT[HTML Text Extractor]
-    STORE --> DB[(SQLite Database)]
-    PIPELINE --> DB
-    REPORTS --> DB
-    API --> DB
+    Analyst[Analyst] --> ST[Streamlit UI]
+    Analyst --> API[FastAPI API]
+    ST --> API
+    API --> SEARCH[DuckDuckGo Discovery]
+    API --> SCRAPE[Trafilatura Extraction]
+    API --> GEMINI[Gemini Entity and Relation Extraction]
+    API --> VECTOR[ChromaDB Vector Store]
+    API --> GRAPH[Kuzu Knowledge Graph]
+    API --> SQL[(SQLite Run Store)]
+    VECTOR --> QUERY[Relationship-aware Retrieval]
+    GRAPH --> QUERY
+    QUERY --> ST
 ```
 
-## Scan Flow
+## Capture Flow
 
 ```mermaid
 flowchart TD
-    A[User enters niche] --> B[POST /api/niches/bootstrap]
-    B --> C[Create niche if missing]
-    C --> D[Discover sources]
-    D --> E[Attach companies and source URLs]
-    E --> F[Run scrape pipeline]
-    F --> G[Fetch each page]
-    G --> H[Extract title and text]
-    H --> I[Save page snapshot]
-    I --> J{Content changed?}
-    J -- Yes --> K[Create change note]
-    J -- No --> L[Skip note]
-    K --> M[Create summary task]
-    L --> M
-    M --> N[Build detailed report]
-    N --> O[Return dashboard-ready result]
+    A[User enters niche and query] --> B[POST /api/intelligence/runs]
+    B --> C[DuckDuckGo returns source candidates]
+    C --> D[Fetch and clean page content]
+    D --> E[Gemini extracts entities and relations]
+    E --> F[Save raw docs and structured outputs in SQLite]
+    F --> G[Upsert documents into ChromaDB]
+    G --> H[Upsert entities and edges into Kuzu]
+    H --> I[Return run summary, documents, entities, relations]
 ```
 
-## Data Model
+## Storage Model
 
 ```mermaid
 erDiagram
-    NICHE ||--o{ COMPANY : has
-    COMPANY ||--o{ SOURCE_PAGE : tracks
-    SOURCE_PAGE ||--o{ PAGE_SNAPSHOT : stores
-    NICHE ||--o{ INSIGHT : produces
-    COMPANY ||--o{ INSIGHT : produces
-    NICHE ||--o{ RESEARCH_TASK : defines
-    RESEARCH_TASK ||--o{ AGENT_TRAJECTORY : creates
-    AGENT_TRAJECTORY ||--o{ TRAJECTORY_STEP : contains
-    AGENT_TRAJECTORY ||--o{ REWARD_RECORD : scores
+    INTELLIGENCE_RUN ||--o{ WEB_DOCUMENT : captures
+    INTELLIGENCE_RUN ||--o{ EXTRACTED_ENTITY : extracts
+    INTELLIGENCE_RUN ||--o{ EXTRACTED_RELATION : extracts
 
-    NICHE {
+    INTELLIGENCE_RUN {
         int id
-        string name
+        string niche
+        string query
+        string status
     }
-    COMPANY {
+    WEB_DOCUMENT {
         int id
-        int niche_id
-        string name
-    }
-    SOURCE_PAGE {
-        int id
-        int company_id
-        string page_type
+        int run_id
+        string title
         string url
     }
-    PAGE_SNAPSHOT {
+    EXTRACTED_ENTITY {
         int id
-        int source_id
-        string content_hash
+        int run_id
+        string name
+        string entity_type
     }
-    INSIGHT {
+    EXTRACTED_RELATION {
         int id
-        int niche_id
-        int company_id
-        string title
+        int run_id
+        string source_entity
+        string target_entity
+        string relation_type
     }
 ```
 
@@ -114,38 +109,42 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e .[dev]
 Copy-Item .env.example .env
+```
+
+Set `GEMINI_API_KEY` in `.env` if you want Gemini extraction.
+
+### Start FastAPI
+
+```powershell
 uvicorn app.main:app --reload
 ```
 
 Open `http://127.0.0.1:8000`.
 
-## Basic flow
+### Start Streamlit
+
+```powershell
+streamlit run streamlit_app.py
+```
+
+Open `http://localhost:8501`.
+
+## Basic workflow
 
 1. Start the app.
-2. Open the dashboard.
-3. Enter a niche.
-4. Run a scan.
-5. Review the saved sources and notes.
-
-## Optional Ollama setup
-
-If you want extra source suggestions, run Ollama locally:
-
-```powershell
-ollama serve
-ollama pull llama3.2
-```
-
-Then set:
-
-```powershell
-DISCOVERY_STRATEGY=hybrid
-OLLAMA_MODEL=llama3.2
-```
+2. Open the Streamlit UI.
+3. Enter a niche and a search query.
+4. Run an intelligence capture.
+5. Review discovered documents, extracted entities, and graph relationships.
+6. Use relationship-aware queries against the stored vector and graph indexes.
 
 ## API endpoints
 
 - `GET /api/health`
+- `GET /api/intelligence/runs`
+- `GET /api/intelligence/runs/{run_id}`
+- `POST /api/intelligence/runs`
+- `POST /api/intelligence/query`
 - `GET /api/niches`
 - `POST /api/niches`
 - `POST /api/niches/bootstrap`
