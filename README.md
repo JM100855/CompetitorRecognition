@@ -158,9 +158,3 @@ OLLAMA_MODEL=llama3.2
 - `POST /api/tasks/{task_id}/run-basic-report`
 - `POST /api/tasks/{task_id}/run-detailed-report`
 - `GET /api/niches/{niche_id}/training-export`
-
-## Limits
-
-- Scraping is basic HTTP only
-- JavaScript-heavy pages will often need a browser-based scraper later
-- Ollama suggestions are optional and heuristic
